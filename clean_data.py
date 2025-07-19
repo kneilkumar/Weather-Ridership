@@ -60,24 +60,31 @@ for pdf in pdfs:
             rainfall_monthly.append(float(text_list[9]))
     rainfall_master.append(sum(rainfall_monthly))
     rainfall_monthly = []
-rainfall_df = pd.DataFrame(rainfall_master)
+rainfall_df = pd.DataFrame({
+    'Months': ["Jul 2023", "Aug 2023", "Oct 2023", "Nov 2023", "Dec 2023", "Jan 2024",
+               "Feb 2024", "Mar 2024", "Apr 2024", "May 2024", "Jun 2024", "Jul 2024",
+               "Aug 2024", "Sep 2024", "Oct 2024", "Nov 2024", "Dec 2024", "Jan 2025",
+               "Feb 2025", "Mar 2025", "Apr 2025", "May 2025"],
+    'Total Monthly Rainfall': rainfall_master
+})
 # df of modes + monthly rainfall measures
 
-grand_totals = pd.merge(grand_totals, rainfall_df)
+master_df = pd.merge(grand_totals, rainfall_df, on='Months', how='inner')
 
 # Exploratory Analysis
 
-grand_totals.plot(title="Rainfall vs Ridership")
+fig, ax = plt.subplots()
+ax.plot(master_df['Months'], master_df['Bus'], label='Bus')
+ax.plot(master_df['Months'], master_df['Train'], label='Train')
+ax.plot(master_df['Months'], master_df['Ferry'], label='Ferry')
+ax.plot(master_df['Months'], master_df['Grand Total'], label='Grand Total')
+plt.legend(loc='upper right')
+plt.xticks(rotation=45)
 
+ax2 = ax.twinx()
+ax2.set_ylabel('Rainfall (mm)', color="#000000")
+ax2.plot(master_df['Months'], master_df['Total Monthly Rainfall'], color="#000000")
+fig.tight_layout()
+plt.show()
 
-
-
-
-
-
-
-
-
-
-
-
+print(master_df[['Grand Total', 'Total Monthly Rainfall']].corr())
