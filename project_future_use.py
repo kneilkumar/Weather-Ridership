@@ -2,8 +2,10 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
 
 # transport monthly total boardings for each mode: cleaning etc
 
@@ -145,10 +147,11 @@ ax_cos2.plot(feature_df_total['Months'], feature_df_total['Total Riders'], color
 plt.xticks(rotation=45)
 plt.show()
 
-# baseline model, still part of feature engineering validation, grand total
+# baseline model, still part of feature engineering validation using grand total
 
-X = feature_df_total[['12 Month Lag'], ['Summer'], ['School Holidays'], ['sin_vals'], ['cos_vals']]
-y = feature_df_total['Total Riders']
+X = pd.DataFrame(feature_df_total, columns=['12 Month Lag', 'Summer', 'School Holidays', 'sin_vals', 'cos_vals'])
+X['12 Month Lag'] = X['12 Month Lag'].replace(np.nan, 0)
+y = pd.DataFrame(feature_df_total, columns=['Total Riders'])
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -156,4 +159,50 @@ scaler = StandardScaler()
 X_trained_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.fit_transform(X_test)
 
+predictive_model = LinearRegression()
+predictive_model.fit(X_trained_scaled, y_train)
+ridership_predictions = predictive_model.predict(X_test_scaled)
 
+mae = mean_absolute_error(y_test, ridership_predictions)
+rmse = root_mean_squared_error(y_test, ridership_predictions)
+print(f"mae = {mae:.2f}    rmse = {rmse:.2f}")
+print(r2_score(y_test, ridership_predictions))
+relative_error = np.mean(abs(y_test - ridership_predictions)/y_test)
+print(relative_error)
+
+# baseline model works pretty well, adding more features such as a rolling average and then testing to get higher R^2
+
+rolling_avg_list = []
+i = 0
+j = 3
+k = 0
+while j != len(feature_df_total['Total Riders'] - 1):
+    if k < 3:
+        rolling_avg_list.append(0)
+        k += 1
+        continue
+    rolling_avg_list.append(np.mean(feature_df_total['Total Riders'][i:j]))
+    i += 1
+    j += 1
+
+rolling_avgs = pd.DataFrame({'Months': month_for_merge, '4 Month Rolling Avg': rolling_avg_list})
+feature_df_total = pd.merge(feature_df_total, rolling_avgs, on='Months', how='inner')
+
+X_new = pd.DataFrame(feature_df_total, columns=['12 Month Lag', 'Summer', 'School Holidays', 'sin_vals', 'cos_vals', '4 Month Rolling Avg'])
+X_new['12 Month Lag'] = X_new['12 Month Lag'].replace(np.nan, 0)
+y_new = pd.DataFrame(feature_df_total, columns=['Total Riders'])
+
+X_train_new, X_test_new, y_train_new, y_test_new = train_test_split(X_new, y_new, test_size=0.2, random_state=42)
+X_train_new_scaled = scaler.fit_transform(X_train_new)
+X_test_new_scaled = scaler.fit_transform(X_test_new)
+
+new_predictive_model = LinearRegression()
+new_predictive_model.fit(X_train_new_scaled, y_train_new)
+new_ridership_predictions = new_predictive_model.predict(X_test_new_scaled)
+
+mae = mean_absolute_error(y_test_new, new_ridership_predictions)
+rmse = root_mean_squared_error(y_test_new, new_ridership_predictions)
+print(f"mae = {mae:.2f}    rmse = {rmse:.2f}")
+print(f"R^2 = {r2_score(y_test_new, new_ridership_predictions):.2f}")
+relative_error = np.mean(abs(y_test_new - new_ridership_predictions)/y_test_new)
+print(f"relative error = {relative_error:.2f}")
